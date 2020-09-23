@@ -100,7 +100,7 @@ def nameop(op, name):
     return tf.identity(op, name=name)
 
 
-MODEL = 'NeuronEdit'
+MODEL = 'NeuronTransform'
 DATA = 'artificial'
 print('Training {} {}'.format(MODEL, DATA))
 
@@ -111,7 +111,7 @@ labels = np.concatenate([0 * np.ones(x.shape[0]), 1 * np.ones(source.shape[0]), 
 r = list(range(labels.shape[0]))
 np.random.shuffle(r)
 
-class NeuronEdit(object):
+class NeuronTransform(object):
     def __init__(self, input_dim, hdim, limit_gpu_fraction=.1, name=''):
         self.name = name
         self.input_dim = input_dim
@@ -266,7 +266,7 @@ batch_size = 50
 hdim = 50
 input_dim = x.shape[1]
 
-model = NeuronEdit(input_dim=input_dim, hdim=hdim)
+model = NeuronTransform(input_dim=input_dim, hdim=hdim)
 
 ###################################################################
 # training
@@ -341,7 +341,6 @@ e2 = alledited
 fig.clf()
 ax1, ax2 = fig.subplots(1, 2, sharex=True, sharey=True)
 ax1.scatter(e1[r, 0], e1[r, 1], c=outlabels[r], s=5, cmap=mpl.cm.coolwarm)
-
 ax2.scatter(e2[r, 0], e2[r, 1], c=outlabels[r], s=5, cmap=mpl.cm.coolwarm)
 
 fig.canvas.draw()
