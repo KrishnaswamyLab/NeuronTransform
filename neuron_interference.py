@@ -112,10 +112,11 @@ r = list(range(labels.shape[0]))
 np.random.shuffle(r)
 
 class NeuronEdit(object):
-    def __init__(self, input_dim, hdim, name=''):
+    def __init__(self, input_dim, hdim, limit_gpu_fraction=.1, name=''):
         self.name = name
         self.input_dim = input_dim
         self.hdim = hdim
+        self.limit_gpu_fraction = limit_gpu_fraction 
 
         self.build()
 
@@ -142,10 +143,6 @@ class NeuronEdit(object):
             target_neurons = tf.placeholder(tf.float32, shape=[None, self.hdim], name='target_neurons')
             x_neurons = tf.placeholder(tf.float32, shape=[None, self.hdim], name='x_neurons')
 
-            # mask = tf.random.categorical(tf.math.log([(np.ones(hdim * 2) / np.ones(hdim * 2).sum()).tolist()]), tf.shape(tfx)[0])
-            # mask = 1 - tf.one_hot(mask, hdim * 2)
-            # mask = tf.cast(mask[0], tf.float32)
-            mask = 1
 
             with tf.variable_scope('mlp', reuse=tf.AUTO_REUSE):
                 tfneurons_source, recon_source = self.mlp(tfsource, hdim=self.hdim, neurons=None)
@@ -156,8 +153,8 @@ class NeuronEdit(object):
                 _, recon_target_edited = self.mlp(tftarget, hdim=self.hdim, neurons=target_neurons)
                 _, recon_x_edited = self.mlp(tfx, hdim=self.hdim, neurons=x_neurons)
 
-                _, recon_source_edited2 = self.mlp(tfsource, hdim=self.hdim, neurons=tfneurons_source * mask)
-                _, recon_x_edited2 = self.mlp(tfx, hdim=self.hdim, neurons=tfneurons_x * mask)
+                _, recon_source_edited2 = self.mlp(tfsource, hdim=self.hdim, neurons=tfneurons_source)
+                _, recon_x_edited2 = self.mlp(tfx, hdim=self.hdim, neurons=tfneurons_x)
 
 
             nameop(tfneurons_source, 'tfneurons_source')
@@ -182,7 +179,7 @@ class NeuronEdit(object):
             self.train_op = opt.minimize(self.loss, name='train_op')
 
             # session
-            self.sess = tf.Session(config=build_config(limit_gpu_fraction=.1))
+            self.sess = tf.Session(config=build_config(limit_gpu_fraction=self.limit_gpu_fraction))
             self.sess.run(tf.global_variables_initializer())
 
     def train(self, source, target, x):
@@ -234,7 +231,6 @@ class NeuronEdit(object):
 
     def earth_mover_transform(self, knbors, out, b1, b2, bins=100):
         out = out.copy()
-        # percentiles_out = [np.percentile(out, 100 * i / bins) for i in range(0, bins + 1)]
         percentiles_b1 = [np.percentile(b1, 100 * i / bins) for i in range(0, bins + 1)]
         percentiles_b2 = [np.percentile(b2, 100 * i / bins) for i in range(0, bins + 1)]
 
@@ -250,14 +246,6 @@ class NeuronEdit(object):
         for i in range(len(percentiles_b1) - 1):
             pctile = np.logical_and(percentiles_b1[i] < b1, b1 < percentiles_b1[i + 1])
             pctiles = np.where(pctile, i, pctiles)
-
-
-        # for i, k in enumerate(knbors):
-        #     k = k[ii]
-        #     ii = int(pctiles[k])
-        #     old = .5 * (percentiles_b1[ii] + percentiles_b1[ii + 1])
-        #     shift = .5 * (percentiles_b2[ii] + percentiles_b2[ii + 1]) - old
-        #     out[i, 0] = out[i, 0] + shift
 
         for i, kk in enumerate(knbors):
             shifts = []
@@ -316,7 +304,7 @@ neurons_source, neurons_target, neurons_x = model.get_neurons(source, target, x)
 emd_spk = model.calc_mi_emd(neurons_source, neurons_target, nbins=100)
 neurons_to_interfere = np.arange(emd_spk.shape[0])[np.argsort(emd_spk, axis=0)].reshape(-1)[::-1]
 
-K = 1
+K = 50
 knn = sklearn.neighbors.NearestNeighbors(K)
 knn.fit(neurons_source)
 knbors1 = knn.kneighbors(neurons_x, return_distance=False)
